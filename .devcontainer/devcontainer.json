@@ -1,0 +1,16 @@
+{
+  "name": "Sample NetDaemon App development",
+  "image": "ludeeus/container:netdaemon",
+  "postCreateCommand": "dotnet restore",
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+		"terminal.integrated.fontSize": 12,
+		"editor.fontFamily": "Cascadia Code, Fira Code, Consolas, 'Courier New', monospace",
+		"editor.fontLigatures": true
+  },
+  "extensions": [
+		"ms-dotnettools.csharp",
+		"k--kato.docomment",
+		"eamodio.gitlens"
+  ]
+}
