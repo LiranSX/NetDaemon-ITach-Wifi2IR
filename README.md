@@ -1,6 +1,4 @@
-# This is the dev setup for NetDaemon
-
-Use this repository as template when developing apps for NetDaemon. Please note that NetDaemon is still under development.
+# ITach Wifi2IR App
 
 ## Getting started
 
