@@ -1,3 +1,10 @@
 obj
 bin
 appsettings.json
+apps/_EntityExtensions.cs
+apps/_EntityExtensionsRx.cs
+apps/Wifi2IrApp/climate.yaml
+apps/Wifi2IrApp/partner_tv.yaml
+apps/Wifi2IrApp/receiver.yaml
+apps/Wifi2IrApp/tv_lg.yaml
+
