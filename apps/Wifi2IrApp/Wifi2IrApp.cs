@@ -156,6 +156,7 @@ namespace Wifi2Ir
         public string? Name { get; set; } 
         public IEnumerable<Command>? Commands { get; set; }
     }
+    
     public class Command    {
         public string? Name { get; set; } 
         public string? Data { get; set; } 
