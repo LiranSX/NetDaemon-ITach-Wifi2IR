@@ -13,17 +13,6 @@ using NetDaemon.Common;
 // conflicting names
 namespace Wifi2Ir
 {
-    public class ItachEndpoint
-    {
-        public string? Address {get;set;}
-        public int Port {get;set;}
-    }
-
-    public class CommandDispatchDetails
-    {
-        public string? IrCode {get;set;}
-        public ItachEndpoint? Endpoint {get;set;}
-    }
     /// <summary>
     ///     The NetDaemonApp implements async model API
     ///     currently the default one
@@ -32,30 +21,34 @@ namespace Wifi2Ir
     {
         public IEnumerable<ItachDevice>? ItachDevices {get;set;}
 
-        private ConcurrentDictionary<string, Socket>? _wf2IrConnections = new ConcurrentDictionary<string, Socket>();
+        private ConcurrentDictionary<string, Socket> _wf2IrConnections = new ConcurrentDictionary<string, Socket>();
 
         private Dictionary<string, CommandDispatchDetails> Commands = new Dictionary<string, CommandDispatchDetails>();
+
         public override void Initialize()
         {
-            Log("initialize called");
-            if (ItachDevices != null)
+            Log("initializing commands");
+            try
             {
-                foreach(ItachDevice itachDevice in ItachDevices)
+                if (ItachDevices != null)
                 {
-                    if (itachDevice.Devices != null && itachDevice.Address != null && itachDevice.Port != null)
+                    foreach(ItachDevice itachDevice in ItachDevices)
                     {
-                        ItachEndpoint endpoint = new ItachEndpoint {Address = itachDevice.Address, Port = int.Parse(itachDevice.Port)};
-
-                        foreach(Device device in itachDevice.Devices)
+                        if (itachDevice.Devices != null && itachDevice.Address != null && itachDevice.Port != null)
                         {
-                            if (device.Commands != null)
+                            ItachEndpoint endpoint = new ItachEndpoint {Address = itachDevice.Address, Port = int.Parse(itachDevice.Port)};
+
+                            foreach(Device device in itachDevice.Devices)
                             {
-                                foreach(Command command in device.Commands)
+                                if (device.Commands != null)
                                 {
-                                    if (!string.IsNullOrEmpty(command.Data))
+                                    foreach(Command command in device.Commands)
                                     {
-                                        Log($"adding {device.Name}.{command.Name}");
-                                        Commands.Add($"{device.Name}.{command.Name}", new CommandDispatchDetails {IrCode = command.Data, Endpoint = endpoint} );
+                                        if (!string.IsNullOrEmpty(command.Data))
+                                        {
+                                            Log($"adding {device.Name}.{command.Name}");
+                                            Commands.Add($"{device.Name}.{command.Name}", new CommandDispatchDetails {IrCode = command.Data, Endpoint = endpoint} );
+                                        }
                                     }
                                 }
                             }
@@ -63,44 +56,46 @@ namespace Wifi2Ir
                     }
                 }
             }
+            catch(Exception ex)
+            {
+                Log(ex, "Commands initialization error");
+            }
         }
 
         [HomeAssistantServiceCall]
         public async void SendIr(dynamic data)
         {
-            Log("A call from hass! {data}", data);
-            CommandDispatchDetails dispatchDetails;
-
             try
             {
-                if (Commands.TryGetValue(data.command, out dispatchDetails))
+                Log("Sending IR Command: {data}", data);
+                if (Commands.TryGetValue(data.command, out CommandDispatchDetails? dispatchDetails))
                 {
-                    Socket socket;
-                    socket = await GetSocket(dispatchDetails.Endpoint.Address, dispatchDetails.Endpoint.Port);
-                    if (socket != null)
+                    if (!string.IsNullOrEmpty(dispatchDetails?.Endpoint?.Address) && !string.IsNullOrEmpty(dispatchDetails?.IrCode))
                     {
-                        try
+                        Socket socket = await GetSocket(dispatchDetails.Endpoint.Address, dispatchDetails.Endpoint.Port);
+                        if (socket != null)
                         {
-                            await SendCommand(socket, dispatchDetails.IrCode);
-                        }
-                        catch
-                        {
-                            Socket removedSocket;
-                            socket.Disconnect(true);
-                            _wf2IrConnections.TryRemove(BuildEndpointKey(dispatchDetails.Endpoint.Address, dispatchDetails.Endpoint.Port), out removedSocket);
+                            try
+                            {
+                                SendCommand(socket, dispatchDetails.IrCode);
+                            }
+                            catch
+                            {
+                                socket.Disconnect(true);
+                                _wf2IrConnections.TryRemove(BuildEndpointKey(dispatchDetails.Endpoint.Address, dispatchDetails.Endpoint.Port), out Socket? removedSocket);
+                            }
                         }
                     }
                 }
             }
-            catch{}
-        }
-        private string BuildEndpointKey(string address, int port) 
-        {
-            return $"{address}:{port}";
+            catch (Exception ex)
+            {
+                Log(ex, "IR command send error");
+            }
         }
         async Task<Socket> GetSocket(string address, int port)
         {
-            Socket connectionSocket = null;
+            Socket? connectionSocket = null;
             string endpointKey = BuildEndpointKey(address, port);
             if (_wf2IrConnections.TryGetValue(endpointKey, out connectionSocket))
             {
@@ -122,25 +117,31 @@ namespace Wifi2Ir
             return connectionSocket;
         }
 
-        async Task<bool> SendCommand(Socket socket, string command)
+        private bool SendCommand(Socket socket, string command)
         {
             bool success = false;
-            try
-            {
-                SocketAsyncEventArgs x = new SocketAsyncEventArgs();
-                x.SetBuffer(Encoding.UTF8.GetBytes(command + "\r"));
-                success = socket.SendAsync(x);
-            }
-            catch (SocketException se)
-            {
-                Log(se, "error");
-            }
-            catch (Exception ex)
-            {
-                Log(ex, "error");
-            }
+            SocketAsyncEventArgs x = new SocketAsyncEventArgs();
+            x.SetBuffer(Encoding.UTF8.GetBytes(command + "\r"));
+            success = socket.SendAsync(x);
             return success;
         }
+
+        private string BuildEndpointKey(string address, int port) 
+        {
+            return $"{address}:{port}";
+        }
+    }
+
+    public class ItachEndpoint
+    {
+        public string? Address {get;set;}
+        public int Port {get;set;}
+    }
+
+    public class CommandDispatchDetails
+    {
+        public string? IrCode {get;set;}
+        public ItachEndpoint? Endpoint {get;set;}
     }
 
     public class ItachDevice{
